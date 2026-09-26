@@ -31,6 +31,9 @@ There's several steps to getting this working:
 The `PROMETHEUS_MULTIPROC_DIR` environment variable must be set to a directory
 that the client library can use for metrics. This directory must be wiped
 between process/Gunicorn runs (before startup is recommended).
+`prometheus_client.multiprocess.cleanup_multiprocess_directory` can be used
+for this, so that metric files left behind by a previous run are not merged
+into the new one.
 
 This environment variable should be set from a start-up shell script,
 and not directly from Python (otherwise it may not propagate to child processes).
@@ -76,6 +79,9 @@ The `gunicorn` configuration file needs to include the following function:
 
 ```python
 from prometheus_client import multiprocess
+
+def on_starting(server):
+    multiprocess.cleanup_multiprocess_directory()
 
 def child_exit(server, worker):
     multiprocess.mark_process_dead(worker.pid)
@@ -151,4 +157,27 @@ from prometheus_client import multiprocess
 
 def child_exit(server, worker):
     multiprocess.mark_process_dead(worker.pid)
+```
+
+### `cleanup_multiprocess_directory(path=None)`
+
+Removes all metric files from the multiprocess directory. Metric files persist
+after a process exits so that counters survive individual worker restarts, so
+they must be removed explicitly when the application as a whole is (re)started.
+Call this once before any worker starts writing metrics, e.g. from Gunicorn's
+`on_starting` hook. It must not be called while other processes are actively
+writing metrics.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `path` | `Optional[str]` | `None` | Path to the multiprocess directory. Defaults to the `PROMETHEUS_MULTIPROC_DIR` environment variable. |
+
+Raises `ValueError` if no path is given and the environment variable is not set.
+
+```python
+# Gunicorn config
+from prometheus_client import multiprocess
+
+def on_starting(server):
+    multiprocess.cleanup_multiprocess_directory()
 ```

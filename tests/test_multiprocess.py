@@ -10,7 +10,8 @@ from prometheus_client.core import (
     CollectorRegistry, Counter, Gauge, Histogram, Sample, Summary,
 )
 from prometheus_client.multiprocess import (
-    mark_process_dead, MultiProcessCollector,
+    cleanup_multiprocess_directory, mark_process_dead,
+    MultiProcessCollector,
 )
 from prometheus_client.values import (
     get_value_class, MultiProcessValue, MutexValue,
@@ -476,6 +477,38 @@ class TestMultiProcess(unittest.TestCase):
             os.path.join(self.tempdir, 'gauge_liveall_9999999.db'),
             os.path.join(self.tempdir, 'gauge_livesum_9999999.db'),
         ]))
+
+    def test_cleanup_multiprocess_directory(self):
+        pid = 0
+        values.ValueClass = MultiProcessValue(lambda: pid)
+        c = Counter('c', 'help', registry=None)
+        h = Histogram('h', 'help', registry=None)
+        c.inc(2)
+        h.observe(1)
+        pid = 1
+        c.inc(3)
+        h.observe(2)
+        self.assertEqual(5, self.registry.get_sample_value('c_total'))
+        self.assertEqual(2, self.registry.get_sample_value('h_count'))
+
+        # Simulate an application restart: files from the previous run are
+        # wiped before new metrics are written, so they cannot pollute it.
+        values.close_all_multiprocess_files()
+        cleanup_multiprocess_directory()
+        self.assertEqual([], glob.glob(os.path.join(self.tempdir, '*.db')))
+        self.assertEqual({}, {m.name: m for m in self.collector.collect()})
+
+        values.ValueClass = MultiProcessValue(lambda: 2)
+        c2 = Counter('c', 'help', registry=None)
+        c2.inc(1)
+        self.assertEqual(1, self.registry.get_sample_value('c_total'))
+
+    def test_cleanup_multiprocess_directory_no_env(self):
+        del os.environ['PROMETHEUS_MULTIPROC_DIR']
+        try:
+            self.assertRaises(ValueError, cleanup_multiprocess_directory)
+        finally:
+            os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
 
     def test_remove_clear_warning(self):
         os.environ['PROMETHEUS_MULTIPROC_DIR'] = self.tempdir
