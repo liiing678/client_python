@@ -35,8 +35,10 @@ CollectorRegistry(auto_describe=False, target_info=None, support_collectors_with
 
 ### `register(collector)`
 
-Register a collector with this registry. Raises `ValueError` if any of the
-metric names the collector produces are already registered.
+Register a collector with this registry. Registering the same collector
+instance again is a no-op. Registering a different collector whose metric
+names clash with an already registered one raises `DuplicateTimeseries`
+(a subclass of `ValueError`), which lists the conflicting names.
 
 ```python
 from prometheus_client.registry import Collector

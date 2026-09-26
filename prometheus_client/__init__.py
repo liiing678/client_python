@@ -19,10 +19,11 @@ from .metrics import (
 from .metrics_core import Metric
 from .platform_collector import PLATFORM_COLLECTOR, PlatformCollector
 from .process_collector import PROCESS_COLLECTOR, ProcessCollector
-from .registry import CollectorRegistry, REGISTRY
+from .registry import CollectorRegistry, DuplicateTimeseries, REGISTRY
 
 __all__ = (
     'CollectorRegistry',
+    'DuplicateTimeseries',
     'REGISTRY',
     'Metric',
     'Counter',

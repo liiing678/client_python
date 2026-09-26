@@ -973,6 +973,29 @@ class TestCollectorRegistry(unittest.TestCase):
         registry.unregister(s)
         Gauge('s_count', 'help', registry=registry)
 
+    def test_reregister_same_collector_is_noop(self):
+        registry = CollectorRegistry()
+        c = Counter('c', 'help', registry=registry)
+        # Registering the same collector instance again must not raise.
+        registry.register(c)
+        c.inc()
+        self.assertEqual(1, registry.get_sample_value('c_total'))
+        self.assertEqual(1, len([m for m in registry.collect() if m.name == 'c']))
+        # A different collector with the same names still raises.
+        self.assertRaises(DuplicateTimeseries, Counter, 'c', 'help', registry=registry)
+
+    def test_reregister_same_nameless_collector_is_noop(self):
+        registry = CollectorRegistry(support_collectors_without_names=True)
+
+        class NamelessCollector:
+            def collect(self):
+                return []
+
+        collector = NamelessCollector()
+        registry.register(collector)
+        registry.register(collector)
+        self.assertEqual([collector], registry._collectors_without_names)
+
     def test_unregister_removes_no_names_collector(self):
         registry = CollectorRegistry(support_collectors_without_names=True)
 

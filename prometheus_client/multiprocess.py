@@ -181,3 +181,22 @@ def mark_process_dead(pid, path=None):
     for mode in _LIVE_GAUGE_MULTIPROCESS_MODES:
         for f in glob.glob(os.path.join(path, f'gauge_{mode}_{pid}.db')):
             os.remove(f)
+
+
+def cleanup_multiprocess_directory(path=None):
+    """Remove all metric files from the multiprocess directory.
+
+    Metric files persist after a process exits so that counters survive
+    individual worker restarts. They must therefore be removed explicitly
+    when the application as a whole is (re)started, otherwise data left
+    behind by a previous run is merged into the new one. Call this once
+    before any worker starts writing metrics, e.g. from Gunicorn's
+    `on_starting` hook. It must not be called while other processes are
+    actively writing metrics.
+    """
+    if path is None:
+        path = os.environ.get('PROMETHEUS_MULTIPROC_DIR', os.environ.get('prometheus_multiproc_dir'))
+    if not path:
+        raise ValueError('env PROMETHEUS_MULTIPROC_DIR is not set')
+    for f in glob.glob(os.path.join(path, '*.db')):
+        os.remove(f)

@@ -43,8 +43,18 @@ class CollectorRegistry:
         self.set_target_info(target_info)
 
     def register(self, collector: Collector) -> None:
-        """Add a collector to the registry."""
+        """Add a collector to the registry.
+
+        Registering the same collector instance more than once is a no-op.
+        Registering a different collector that exposes any of the same
+        timeseries names raises DuplicateTimeseries.
+        """
         with self._lock:
+            if collector in self._collector_to_names:
+                # Re-registering the same collector is a no-op, so that
+                # e.g. initialization code that runs more than once does
+                # not fail spuriously.
+                return
             names = self._get_names(collector)
             duplicates = set(self._names_to_collectors).intersection(names)
             if duplicates:
